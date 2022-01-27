@@ -62,10 +62,13 @@
 #include "gpio_pins.h"
 #include "SEGGER_RTT.h"
 #include "devSSD1331.h"
+#include "mainProg.h"
 
 #define							kWarpConstantStringI2cFailure		"\rI2C failed, reg 0x%02x, code %d\n"
 #define							kWarpConstantStringErrorInvalidVoltage	"\rInvalid supply voltage [%d] mV!"
 #define							kWarpConstantStringErrorSanity		"\rSanity check failed!"
+
+
 
 
 #if (WARP_BUILD_ENABLE_DEVADXL362)
@@ -176,6 +179,23 @@
 	volatile WarpUARTDeviceState			deviceBGXState;
 #endif
 
+#if (WARP_BUILD_ENABLE_INA219)
+	#include "devINA219.h"
+	volatile WarpI2CDeviceState			deviceINA219State;
+#endif
+
+#if (WARP_BUILD_ENABLE_DS1307)
+	#include "devDS1307.h"
+	volatile WarpI2CDeviceState			deviceDS1307State;
+#endif
+
+//#if (WARP_BUILD_ENABLE_MFRC522)
+#include "devMFRC522.h"
+volatile WarpSPIDeviceState deviceMFRC522State;
+//#endif
+
+
+char inputText[13];
 
 volatile i2c_master_state_t				i2cMasterState;
 volatile spi_master_state_t				spiMasterState;
@@ -1598,6 +1618,14 @@ main(void)
 	/*
 	 *	Initialize all the sensors
 	 */
+	#if (WARP_BUILD_ENABLE_INA219)
+ 		initINA219(	0x40	/* i2cAddress */,		kWarpDefaultSupplyVoltageMillivoltsINA219	);
+ 	#endif
+
+	#if (WARP_BUILD_ENABLE_DS1307)
+		initDS1307(	0x68	/* i2cAddress */,		kWarpDefaultSupplyVoltageMillivoltsDS1307);
+	#endif
+	 
 	#if (WARP_BUILD_ENABLE_DEVBMX055)
 		initBMX055accel(0x18	/* i2cAddress */,	&deviceBMX055accelState,	kWarpDefaultSupplyVoltageMillivoltsBMX055accel	);
 		initBMX055gyro(	0x68	/* i2cAddress */,	&deviceBMX055gyroState,		kWarpDefaultSupplyVoltageMillivoltsBMX055gyro	);
@@ -1868,6 +1896,7 @@ main(void)
 	 */
 	gWarpBooted = true;
 	warpPrint("Boot done.\n");
+	devMFRC522init(&deviceMFRC522State);
 
 	#if (WARP_BUILD_BOOT_TO_CSVSTREAM)
 		printBootSplash(gWarpCurrentSupplyVoltage, menuRegisterAddress, &powerManagerCallbackStructure);
@@ -1986,7 +2015,7 @@ main(void)
 
 		warpDisableI2Cpins();
 
-		warpPrint("About to loop with printSensorDataBME680()...\n");
+		warpPrint("About to loop with printSensorDataBME680()...\n");	
 		while (1)
 		{
 			blinkLED(kGlauxPinLED);
@@ -2017,6 +2046,11 @@ main(void)
 		}
 	#endif
 	devSSD1331init();
+	warpPrint("hello");
+	if(!checkTag(0x880404D850))//Checks to see if debug tag is added on
+	{
+		mainProgram();	
+	}
 	while (1)
 	{
 		/*
@@ -2047,6 +2081,7 @@ main(void)
 		warpPrint("\r- 's': power up all sensors.\n");
 		warpPrint("\r- 't': dump processor state.\n");
 		warpPrint("\r- 'u': set I2C address.\n");
+		warpPrint("\r '?': Medication tracker settings.\n");
 
 		#if (WARP_BUILD_ENABLE_DEVAT45DB)
 			warpPrint("\r- 'R': read bytes from Flash.\n");
@@ -2063,7 +2098,7 @@ main(void)
 
 		warpPrint("\r- 'x': disable SWD and spin for 10 secs.\n");
 		warpPrint("\r- 'z': perpetually dump all sensor data.\n");
-
+		warpPrint(warpBootDate.second);
 		warpPrint("\rEnter selection> ");
 		key = warpWaitKey();
 
@@ -2677,6 +2712,8 @@ main(void)
 				}
 
 				warpPrint("\r\n\tThis should never happen...\n");
+
+				break;
 			}
 #endif
 			/*
@@ -2725,6 +2762,8 @@ main(void)
 
 				warpPrint("\r\n\tEnd address (e.g., '0000')> ");
 				//xx = read4digits();
+
+				break;
 			}
 
 			/*
@@ -2739,6 +2778,8 @@ main(void)
 				//xx = read4digits();
 
 				warpPrint("\r\n\tEnter [%d] raw bytes > ");
+
+				break;
 			}
 
 			/*
@@ -2751,6 +2792,8 @@ main(void)
 
 				warpPrint("\r\n\tNumber of bytes to use (e.g., '0000')> ");
 				//xx = read4digits();
+
+				break;
 			}
 
 
@@ -2766,6 +2809,40 @@ main(void)
 			default:
 			{
 				warpPrint("\r\tInvalid selection '%c' !\n", key);
+			}
+			
+			case '?':
+			{
+				int fourDig;
+				warpPrint("\n '1' : Set time");
+				warpPrint("\n '2' : Show time");
+				warpPrint("\n Enter Selection >");
+				OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
+			  	key = warpWaitKey();
+			  	switch(key)
+				{
+					case '1' :
+					{
+						warpPrint("\r\n\t  Write time in HHMM (H = Hours, M = Minutes) >");
+						OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
+			  			fourDig = read4digits();
+						setTimeDS1307(0x00,fourDig%100,fourDig/100);
+						break;
+					}
+					
+					case '2' :
+					{
+						uint8_t mins;
+						uint8_t hours;
+						mins = outputTimeDS1307(0x01);
+    					hours = outputTimeDS1307(0x02);
+						warpPrint("%d :,%d",hours,mins);
+						devSSD1331WriteTime(hours,mins);
+						break;
+
+					}
+				}
+				break;
 			}
 		}
 	}
@@ -2806,12 +2883,19 @@ printAllSensors(bool printHeadersAndCalibration, bool hexModeFlag, int menuDelay
 					0b00000000/* normal mode, disable FIFO, disable high pass filter */
 					);
 	#endif
+
+	#if (WARP_BUILD_ENABLE_INA219)
+		configureSensorINA219(0x399F, /* Configuration register*/ 0x1000 /*Calibration Register*/);
+		
+	#endif
+
 	#if (WARP_BUILD_ENABLE_DEVBME680)
 	numberOfConfigErrors += configureSensorBME680(	0b00000001,	/*	payloadCtrl_Hum: Humidity oversampling (OSRS) to 1x				*/
 							0b00100100,	/*	payloadCtrl_Meas: Temperature oversample 1x, pressure overdsample 1x, mode 00	*/
 							0b00001000	/*	payloadGas_0: Turn off heater							*/
 					);
-
+					
+	
 	if (printHeadersAndCalibration)
 	{
 		warpPrint("\r\n\nBME680 Calibration Data: ");
@@ -2911,43 +2995,45 @@ printAllSensors(bool printHeadersAndCalibration, bool hexModeFlag, int menuDelay
 		warpPrint("%12u, %12d, %6d,\t\t", readingCount, RTC->TSR, RTC->TPR);
 
 		#if (WARP_BUILD_ENABLE_DEVADXL362)
-			printSensorDataADXL362(hexModeFlag);
+			//printSensorDataADXL362(hexModeFlag);
 		#endif
 
 		#if (WARP_BUILD_ENABLE_DEVAMG8834)
-			printSensorDataAMG8834(hexModeFlag);
+			//printSensorDataAMG8834(hexModeFlag);
 		#endif
 
 		#if (WARP_BUILD_ENABLE_DEVMMA8451Q)
-			printSensorDataMMA8451Q(hexModeFlag);
+			//printSensorDataMMA8451Q(hexModeFlag);
 		#endif
 
 		#if (WARP_BUILD_ENABLE_DEVMAG3110)
-			printSensorDataMAG3110(hexModeFlag);
+			//printSensorDataMAG3110(hexModeFlag);
 		#endif
 
 		#if (WARP_BUILD_ENABLE_DEVL3GD20H)
-			printSensorDataL3GD20H(hexModeFlag);
+			//printSensorDataL3GD20H(hexModeFlag);
 		#endif
 
 		#if (WARP_BUILD_ENABLE_DEVBME680)
-			printSensorDataBME680(hexModeFlag);
+			//printSensorDataBME680(hexModeFlag);
 		#endif
 
 		#if (WARP_BUILD_ENABLE_DEVBMX055)
-			printSensorDataBMX055accel(hexModeFlag);
-			printSensorDataBMX055mag(hexModeFlag);
-			printSensorDataBMX055gyro(hexModeFlag);
+			//printSensorDataBMX055accel(hexModeFlag);
+			//printSensorDataBMX055mag(hexModeFlag);
+			//printSensorDataBMX055gyro(hexModeFlag);
 		#endif
 
 		#if (WARP_BUILD_ENABLE_DEVCCS811)
-			printSensorDataCCS811(hexModeFlag);
+			//printSensorDataCCS811(hexModeFlag);
 		#endif
 
 		#if (WARP_BUILD_ENABLE_DEVHDC1000)
-			printSensorDataHDC1000(hexModeFlag);
+			//printSensorDataHDC1000(hexModeFlag);
 		#endif
-
+		#if (WARP_BUILD_ENABLE_INA219)
+			printSensorDataINA219(hexModeFlag);
+		#endif
 		warpPrint(" %12d, %6d, %2u\n", RTC->TSR, RTC->TPR, numberOfConfigErrors);
 
 		if (menuDelayBetweenEachRun > 0)
@@ -3661,8 +3747,23 @@ read4digits(void)
 
 	return (digit1 - '0')*1000 + (digit2 - '0')*100 + (digit3 - '0')*10 + (digit4 - '0');
 }
-
-
+void
+read12letter(void)
+{
+	inputText[12] = ' ';
+	for(int letter = 0; letter<12; letter++)
+	{
+		inputText[letter] = warpWaitKey();
+		if(inputText[letter] == 10)
+		{
+			for(int j = letter; j < 12; j++)
+			{
+				inputText[j] = ' ';
+			}
+			return;
+		}
+	}
+}
 
 WarpStatus
 writeByteToI2cDeviceRegister(uint8_t i2cAddress, bool sendCommandByte, uint8_t commandByte, bool sendPayloadByte, uint8_t payloadByte)

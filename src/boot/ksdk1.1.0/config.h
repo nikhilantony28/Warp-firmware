@@ -39,6 +39,9 @@
 #define		WARP_BUILD_BOOT_TO_CSVSTREAM			0
 #define		WARP_BUILD_BOOT_TO_VLPR				1
 #define		WARP_BUILD_DISABLE_SUPPLIES_BY_DEFAULT		0
+#define		WARP_BUILD_ENABLE_INA219		1
+#define		WARP_BUILD_ENABLE_MFRC522		1
+#define		WARP_BUILD_ENABLE_DS1307		1
 
 /*
  *	NOTE: The choice of WARP_BUILD_ENABLE_GLAUX_VARIANT is defined via the Makefile build rules.
@@ -184,4 +187,6 @@ typedef enum
 	kWarpDefaultSupplyVoltageMillivoltsISL23415		= 1800,
 	kWarpDefaultSupplyVoltageMillivoltsAT45DB		= 1800,
 	kWarpDefaultSupplyVoltageMillivoltsICE40		= 1800,
+	kWarpDefaultSupplyVoltageMillivoltsINA219		= 1800,
+	kWarpDefaultSupplyVoltageMillivoltsDS1307		= 1800,
 } WarpDefaults;
