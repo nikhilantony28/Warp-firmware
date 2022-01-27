@@ -1,6 +1,10 @@
 # 4B25 Project: Medication tracker using RFID. Nikhil Antony
 
-naa49_coursework4_report.pdf has the main report for this project aims and performance characterisation. This read.me is to explain more about how the embedded systems works using the warp firmware. wiring diagram of this system is shown as Figure 1. The system is composed of: KL03 development baord, SSD1331 OLED Display, DS1307 Real Time Clock and RC522 RFID reader. The INA219 and Arduino Nano are used to monitor power consumption.
+naa49_coursework5_report.pdf has the main report for this project aims and performance characterisation. This read.me is to explain more about how the embedded systems works using the warp firmware. wiring diagram of this system is shown as Figure 1. The system is composed of: KL03 development baord, SSD1331 OLED Display, DS1307 Real Time Clock and RC522 RFID reader. The INA219 and Arduino Nano are used to monitor power consumption.
+
+![flowchart](https://user-images.githubusercontent.com/79549228/151400995-2884c35b-92c4-43f0-8db3-74e78b44f1e7.png)
+![wiring diagram](https://user-images.githubusercontent.com/79549228/151401078-d7379022-35ab-4cdf-8c05-0428e7f42841.png)
+
 
 ## SSD1331 OLED
 
